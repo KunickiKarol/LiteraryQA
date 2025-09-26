@@ -5,9 +5,15 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "bs4>=0.0.2",
     "chardet>=5.2.0",
     "datasets>=4.1.1",
     "ftfy>=6.3.1",
     "loguru>=0.7.3",
     "typed-argument-parser>=1.11.0",
+]
+
+[dependency-groups]
+dev = [
+    "ipython>=8.37.0",
 ]
