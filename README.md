@@ -1,8 +1,6 @@
-<div align="center"><img src="assets/literaryqa.png" width="250"></div>
+<div align="center"><img src="assets/literaryqa_icon.png" width="700"></div>
 
 <div align="center">
-
-
 
 [![Conference](http://img.shields.io/badge/EMNLP-2025-4b44ce.svg)](https://2025.aclweb.org/)
 [![Paper](http://img.shields.io/badge/paper-ACL--anthology-B31B1B.svg)]()
