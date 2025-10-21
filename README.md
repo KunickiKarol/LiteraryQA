@@ -3,7 +3,7 @@
 <div align="center">
 
 [![Conference](http://img.shields.io/badge/EMNLP-2025-4b44ce.svg)](https://2025.aclweb.org/)
-[![Paper](http://img.shields.io/badge/paper-ACL--anthology-B31B1B.svg)]()
+[![Paper](http://img.shields.io/badge/paper-ACL--anthology-B31B1B.svg)](https://arxiv.org/abs/2510.13494)
 [![arXiv](https://img.shields.io/badge/arXiv-paper-b31b1b.svg)](https://arxiv.org/abs/2510.13494) 
 [![Hugging Face Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Dataset-FCD21D)](https://huggingface.co/datasets/sapienzanlp/LiteraryQA)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-green.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
@@ -11,29 +11,32 @@
 
 
 ##  Description
-This repository contains the official code for the EMNLP 2025 main conference paper: [<span style="font-variant: small-caps;">LiteraryQA</span>: Towards Effective Evaluation of Long-document Narrative QA]() by [Tommaso Bonomo](https://www.linkedin.com/in/tommaso-bonomo/)\*, [Luca Gioffré](https://www.linkedin.com/in/luca-gioffre/)\* and [Roberto Navigli](https://www.linkedin.com/in/robertonavigli/).
+This repository contains the official code for the EMNLP 2025 main conference paper: [<span style="font-variant: small-caps;">LiteraryQA</span>: Towards Effective Evaluation of Long-document Narrative QA](https://arxiv.org/abs/2510.13494) by [Tommaso Bonomo](https://www.linkedin.com/in/tommaso-bonomo/)\*, [Luca Gioffré](https://www.linkedin.com/in/luca-gioffre/)\* and [Roberto Navigli](https://www.linkedin.com/in/robertonavigli/).
 The dataset is available at this [🤗 Hugging Face dataset](https://huggingface.co/datasets/sapienzanlp/LiteraryQA).
+If you rather download the data manually, or if you want to run evaluations on your own models' predictions, please follow the instructions below.
 
-## Setup 
+## Local download
 
-Clone the repository and create a Python virtual environment and install the requirements. 
-We recommend using [uv](https://docs.astral.sh/uv/guides/install-python/#getting-started) as package manager.
+Clone the repository:
 ```bash
 git clone https://github.com/sapienzanlp/LiteraryQA.git
-uv sync
+cd LiteraryQA
 ```
 
-## <span style="font-variant: small-caps;">LiteraryQA</span> Data
-
-### Download the data
-To obtain the <span style="font-variant: small-caps;">LiteraryQA</span> dataset, first download the original books from [Project Gutenberg](https://www.gutenberg.org/ebooks/), then run the cleaning step:
+We recommend using [uv](https://docs.astral.sh/uv/getting-started/installation/) as your Python package manager to quickly run our scripts.
+You can install it with:
 ```bash
-./scripts/download_books.sh test # dash-separated list of the data splits
-./scripts/clean_books.sh
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
-The dataset will be saved to the default directory `data/`.
 
-You can also access the dataset through [🤗 Hugging Face](https://huggingface.co/datasets/sapienzanlp/LiteraryQA), which will do the same operations in background.
+To download and clean the books from Project Gutenberg, run:
+```bash
+uv run scripts/download_and_clean_books.py
+
+options:
+  --output_dir <path> = "data/literaryqa"  # Directory to save downloaded books
+  --normalize <bool> = False # whether to normalize punctuation, can be enabled manually
+```
 
 ### Data format
 <span style="font-variant: small-caps;">LiteraryQA</span> is a filtered and improved version of [NarrativeQA](https://arxiv.org/abs/1712.07040). 
@@ -72,13 +75,17 @@ Here is a sample of the dataset:
 }
 ```
 
+## Evaluation
+
+TODO
+
 ## Citation
 This work has been published at EMNLP 2025 (main conference). If you use any artifact, please cite our paper as follows:
 
 [![arXiv](https://img.shields.io/badge/arXiv-paper-b31b1b.svg)](https://arxiv.org/abs/2510.13494) 
 ```bibtex
-@misc{bonomo2025literaryqaeffectiveevaluationlongdocument,
-      title={{LiteraryQA}: Towards Effective Evaluation of Long-document Narrative QA}, 
+@misc{bonomo2025literaryqa,
+      title={{LiteraryQA: Towards Effective Evaluation of Long-document Narrative QA}}, 
       author={Tommaso Bonomo and Luca Gioffré and Roberto Navigli},
       year={2025},
       eprint={2510.13494},
