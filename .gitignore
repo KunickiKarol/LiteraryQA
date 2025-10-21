@@ -1,7 +1,9 @@
+# MacOS system files
+.DS_Store
+
 # Custom Python.gitignore file
 data/
-# allow only data/.placeholder
-data/.placeholder
+!data/literaryqa_urls.tsv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

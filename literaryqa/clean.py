@@ -1,29 +1,18 @@
-"""Clean Project Gutenberg HTML for NarrativeQA by extracting readable text.
+# ===== Cleaning rules and markers ===== #
 
-This module cleans HTML exported from Project Gutenberg to produce normalized
-plain text for QA tasks. It removes boilerplate (headers/footers, license
-sections), handles special structures (poems, stage directions, sidebars), and
-collects diagnostics about residual Gutenberg markers.
-"""
-
-# ===== Imports ===== #
-import re
-import os
 import json
-import pandas as pd
-from tap import Tap
-from tqdm import tqdm
-from pathlib import Path
-from datasets import load_dataset
-from src.logging_utils import log, loguru_setup
-from src.download_narrativeqa_html import detect_encoding_and_read
-from bs4 import BeautifulSoup, NavigableString, XMLParsedAsHTMLWarning
-
+import re
 import warnings
+from pathlib import Path
+
+import chardet
+from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
+from bs4.element import NavigableString
+from ftfy import fix_text
+from literaryqa.download import is_text_corrupted
+from loguru import logger
 
 warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
-
-# ===== Cleaning rules and markers ===== #
 
 START_MARKERS = [
     "***START OF THIS PROJECT GUTENBERG EBOOK",
@@ -121,69 +110,6 @@ OTHER_MARKERS = [
 ]
 
 
-# ===== Aggregation structures (failures report) ===== #
-failures_df = {
-    "file": [],
-    "nqa_error": [],
-    "tr_error": [],
-    "nqa_start_markers_pos": [],
-    "nqa_end_markers_pos": [],
-    "nqa_other_markers_pos": [],
-    "tr_start_markers_pos": [],
-    "tr_end_markers_pos": [],
-    "tr_other_markers_pos": [],
-}
-
-
-class ScriptArgs(Tap):
-    """Command-line arguments for the HTML cleaning script.
-
-    Attributes:
-        id: Optional Gutenberg numeric ID to restrict processing to a single book.
-        limit: Max number of items to process per split (-1 means no limit).
-        input: Directory containing input HTML files (per split).
-        output: Directory where cleaned text and reports will be written.
-        normalize: If True, normalize punctuation to ease comparison with NQA text.
-    """
-
-    id: str | None = None  # to process a single book by its Gutenberg ID
-    limit: int = -1  # max number of items to process per split (-1 means no limit)
-    input: str = "data/narrativeqa"
-    output: str = "data/narrativeqa_clean"
-    splits: str = (
-        "test"  # dash-separated list of splits to process, e.g. "train-validation-test"
-    )
-    normalize: bool = False  # normalizes punkt for easy comparison, can be disabled
-    nqa_hf_path: str = "deepmind/narrativeqa"
-
-    def process_args(self):
-        """Normalize paths, ensure output dir exists, and initialize logging."""
-        self.input_path = Path(self.input)
-        self.output_path = Path(self.output)
-        self.data_splits = self.splits.split("-")
-        for split in self.data_splits:
-            os.makedirs(self.output_path / split, exist_ok=True)
-        loguru_setup()
-
-
-def get_hash2id_map(
-    input_file: str = "data/narrativeqa_clean/narrativeqa_id_hash_map.tsv",
-):
-    """Load map from NarrativeQA document IDs (hashes) to Gutenberg IDs.
-
-    Args:
-        input_file: Path to a TSV with columns `id` and `book_id`.
-
-    Returns:
-        A dict mapping NarrativeQA `id` to Gutenberg `book_id`.
-    """
-    id_map = {}
-    df = pd.read_csv(input_file, sep="\t")
-    for _, row in df.iterrows():
-        id_map[row["id"]] = row["book_id"]
-    return id_map
-
-
 def _keep_alt_img_text(soup: BeautifulSoup):
     """Replace images with their title/alt text and merge adjacent content.
 
@@ -192,15 +118,15 @@ def _keep_alt_img_text(soup: BeautifulSoup):
     """
     # Find all image tags
     for img in soup.find_all("img"):
-        alt_text = img.get("title", "").strip()
+        alt_text = img.get("title", "").strip()  # type: ignore
         if not alt_text:
-            alt_text = img.get("alt", "").strip()
+            alt_text = img.get("alt", "").strip()  # type: ignore
 
         # Get the parent element
         parent = img.parent
 
         # Find the position of the img tag in its parent's contents
-        img_index = parent.contents.index(img)
+        img_index = parent.contents.index(img)  # type: ignore
 
         # Replace the img tag with its alt text
         img.replace_with(NavigableString(alt_text))
@@ -208,19 +134,19 @@ def _keep_alt_img_text(soup: BeautifulSoup):
         # If there's content after the image and it's a string,
         # and the previous content (now the alt text) is also a string,
         # then merge them
+        # Do this only if the parent exists
+        if parent is None:
+            continue
         if (
             img_index + 1 < len(parent.contents)
             and isinstance(parent.contents[img_index], NavigableString)
             and isinstance(parent.contents[img_index + 1], NavigableString)
         ):
-
             # Get the content
-            content_after = parent.contents[img_index + 1].string
+            content_after = parent.contents[img_index + 1].string  # type: ignore
 
             # Create a new string with merged content
-            new_text = NavigableString(
-                parent.contents[img_index].string + content_after
-            )
+            new_text = NavigableString(parent.contents[img_index].string + content_after)  # type: ignore
 
             # Replace both nodes with the merged content
             parent.contents[img_index].replace_with(new_text)
@@ -236,36 +162,12 @@ def _remove_sidebar(soup: BeautifulSoup):
     # Find all divs with class 'sidebar'
     for sidebar_div in soup.find_all("div", class_="sidebar"):
         # Inside each sidebar, find all <p> tags
-        for p_tag in sidebar_div.find_all("p"):
+        for p_tag in sidebar_div.find_all("p"):  # type: ignore
             # Inside each <p>, find all <span> tags and unwrap them
-            for span in p_tag.find_all("span"):
-                span.unwrap()
+            for span in p_tag.find_all("span"):  # type: ignore
+                span.unwrap()  # type: ignore
         # After fixing spans, unwrap the sidebar div itself (keep its content)
-        sidebar_div.unwrap()
-
-
-def _keep_songs(soup: BeautifulSoup):
-    """Normalize song structures into <pre> blocks with line breaks.
-
-    Args:
-        soup: A BeautifulSoup document to be modified in place.
-    """
-    for songs_div in soup.find_all("div", id="songs"):
-        for song_div in songs_div.find_all("div", class_="song"):
-
-            lines = [
-                line.get_text(strip=True)
-                for line in song_div.find_all("div", class_="line")
-            ]
-            song_text = "\n\n".join(lines)
-
-            # Create a new <pre> tag and insert the song text
-            pre_tag = soup.new_tag("pre")
-            pre_tag.append(NavigableString(song_text))
-
-            # Replace the original <div class="song"> with the new <pre>
-            song_div.replace_with(pre_tag)
-        songs_div.unwrap()
+        sidebar_div.unwrap()  # type: ignore
 
 
 def _keep_span_margin_left(soup: BeautifulSoup):
@@ -275,10 +177,30 @@ def _keep_span_margin_left(soup: BeautifulSoup):
         soup: A BeautifulSoup document to be modified in place.
     """
     for span in soup.find_all("span"):
-        style = span.get("style", "")
-        if re.search(r"margin-left:\s*[\d.]+em;", style):
-            span.name = "p"
-            del span["style"]
+        style = span.get("style", "")  # type: ignore
+        if re.search(r"margin-left:\s*[\d.]+em;", style):  # type: ignore
+            span.name = "p"  # type: ignore
+            del span["style"]  # type: ignore
+
+
+def _keep_songs(soup: BeautifulSoup):
+    """Normalize song structures into <pre> blocks with line breaks.
+
+    Args:
+        soup: A BeautifulSoup document to be modified in place.
+    """
+    for songs_div in soup.find_all("div", id="songs"):
+        for song_div in songs_div.find_all("div", class_="song"):  # type: ignore
+            lines = [line.get_text(strip=True) for line in song_div.find_all("div", class_="line")]  # type: ignore
+            song_text = "\n\n".join(lines)
+
+            # Create a new <pre> tag and insert the song text
+            pre_tag = soup.new_tag("pre")
+            pre_tag.append(NavigableString(song_text))
+
+            # Replace the original <div class="song"> with the new <pre>
+            song_div.replace_with(pre_tag)
+        songs_div.unwrap()  # type: ignore
 
 
 def extract_raw_text(html_content, **kwargs):
@@ -341,9 +263,9 @@ def extract_raw_text(html_content, **kwargs):
 
     if kwargs.get("keep_dropcap", True):
         for div in soup.find_all("div", class_="drop-cap"):
-            div.name = "p"
+            div.name = "p"  # type: ignore
         for tag in soup.find_all("div", class_="center"):
-            tag.unwrap()
+            tag.unwrap()  # type: ignore
 
     if kwargs.get("keep_span_margin_left", True):
         _keep_span_margin_left(soup)
@@ -351,31 +273,31 @@ def extract_raw_text(html_content, **kwargs):
     if kwargs.get("keep_poem", True):
         for poem_div in soup.find_all("div", class_="poem"):
             # Handle stanza-based poems (with <div class="stanza">)
-            for stanza_div in poem_div.find_all("div", class_="stanza"):
-                for span in stanza_div.find_all("span"):
-                    span.unwrap()
-                for br in stanza_div.find_all("br"):
+            for stanza_div in poem_div.find_all("div", class_="stanza"):  # type: ignore
+                for span in stanza_div.find_all("span"):  # type: ignore
+                    span.unwrap()  # type: ignore
+                for br in stanza_div.find_all("br"):  # type: ignore
                     br.replace_with("\n")
-                stanza_div.unwrap()
+                stanza_div.unwrap()  # type: ignore
 
             # Handle paragraph-based poems (<p> lines)
-            for p in poem_div.find_all("p"):
+            for p in poem_div.find_all("p"):  # type: ignore
                 # Insert newline after each <p>
                 p.insert_after(soup.new_tag("br"))
-                p.unwrap()
+                p.unwrap()  # type: ignore
 
-            poem_div.name = "pre"
-            del poem_div["class"]
+            poem_div.name = "pre"  # type: ignore
+            del poem_div["class"]  # type: ignore
 
     # e.g., in 44015 in the test set
     if kwargs.get("keep_stage_dir", True):
         for div in soup.find_all("div", class_="stage-direction"):
-            div.name = "p"
+            div.name = "p"  # type: ignore
 
     # e.g., in 44015 in the test set
     if kwargs.get("keep_scene_desc", True):
         for div in soup.find_all("div", class_="scene-description"):
-            div.name = "p"
+            div.name = "p"  # type: ignore
 
     # e.g., in 44015 in the test set
     if kwargs.get("keep_songs", True):
@@ -393,8 +315,7 @@ def extract_raw_text(html_content, **kwargs):
     output_lines = []
 
     for tag in soup.find_all(allowed_tags):
-
-        if tag.name == "pre":
+        if tag.name == "pre":  # type: ignore
             # preserve \n inserted from <br>
             text = tag.get_text(separator="\n", strip=True)
         else:
@@ -441,16 +362,14 @@ def extract_raw_text(html_content, **kwargs):
             text = re.sub(r"\s+\)", ")", text)
             text = text.replace(" ( ) ", "")
             # Keep newlines for <pre> tags
-            if tag.name != "pre":
+            if tag.name != "pre":  # type: ignore
                 text = text.replace("\n", " ")
                 text = " ".join(text.split())
 
         # Avoid empty lines and junks
         if not text or (  # or len(text) < 2:
             kwargs.get("remove_pagenum", True)
-            and re.search(
-                r"^p. \d+:", text, flags=re.IGNORECASE | re.DOTALL | re.MULTILINE
-            )
+            and re.search(r"^p. \d+:", text, flags=re.IGNORECASE | re.DOTALL | re.MULTILINE)
         ):
             continue
 
@@ -466,9 +385,32 @@ def extract_raw_text(html_content, **kwargs):
     return "\n\n".join(output_lines)
 
 
-def remove_gutenberg_info(
-    raw_text: str | list[str], gt_id: int, log_file: Path | None = None
-):
+def detect_encoding_and_read(file_path: Path) -> str:
+    """Read text from a file with detected encoding and optionally fix mojibake.
+
+    This function uses ``chardet`` to guess the file encoding, decodes the file
+    contents, and then applies a heuristic check. If the text appears to be
+    corrupted, it applies ``ftfy.fix_text`` to repair common Unicode issues.
+
+    Args:
+        file_path: Path to the text/HTML file on disk.
+
+    Returns:
+        The decoded (and possibly fixed) text as a string.
+    """
+    # Detect encoding
+    raw_data = file_path.read_bytes()
+    detected = chardet.detect(raw_data)
+    encoding = detected["encoding"] if detected["encoding"] else "utf-8"
+
+    # Read file with detected encoding
+    text = raw_data.decode(encoding, errors="replace")
+    if is_text_corrupted(text):
+        text = fix_text(text)
+    return text
+
+
+def remove_gutenberg_info(raw_text: str | list[str], gt_id: int, log_file: Path | None = None):
     """Remove Gutenberg boilerplate from raw text and track markers.
 
     Scans the provided text for start/end markers, removes lines matching skip
@@ -496,7 +438,7 @@ def remove_gutenberg_info(
     if log_file:
         log_out = open(log_file, "w")
         log_out.write("Line_id\tMarker\tLine\t\n")
-    for i, line in enumerate(raw_text.split("\n")):
+    for i, line in enumerate(splitted):
         line = line.strip()
         if not line:
             continue
@@ -568,14 +510,14 @@ def remove_gutenberg_info(
                 # ignore the end marker if it is found in the first half of the text
                 if p < 0.5:
                     if log_file:  # also used to enable console prints
-                        log.info(
-                            f"[{gt_id}] >> Found end marker `{end_marker}` in line {i}/{num_lines} ({100*p:.2f}) --> ignored"
+                        logger.info(
+                            f"[{gt_id}] >> Found end marker `{end_marker}` in line {i}/{num_lines} ({100 * p:.2f}) --> ignored"
                         )
                 # if the end marker is found in the second half of the text, log it and truncate
                 elif 0.5 <= p < 0.85:
                     if log_file:
-                        log.info(
-                            f"[{gt_id}] >> Found end marker `{end_marker}` in line {i}/{num_lines} ({100*p:.2f}) --> check"
+                        logger.info(
+                            f"[{gt_id}] >> Found end marker `{end_marker}` in line {i}/{num_lines} ({100 * p:.2f}) --> check"
                         )
                     # print(line)
                     break
@@ -605,8 +547,8 @@ def clean_and_save(
     gt_id: int,
     raw_text: str,
     normalize: bool = False,
-    output_file: str | None = None,
-    log_file: str | None = None,
+    output_file: Path | None = None,
+    log_file: Path | None = None,
 ):
     """Clean text using Gutenberg rules and optionally save to disk.
 
@@ -627,70 +569,6 @@ def clean_and_save(
 
     # save cleaned versions
     if output_file:
-        os.makedirs(output_file.parent, exist_ok=True)
-        with open(str(output_file), "w") as out_file:
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_file, "w") as out_file:
             out_file.write(text)
-
-
-def main(args: ScriptArgs, nqa_split, split: str, id_map: dict):
-    """Process one split: clean texts and write reports.
-
-    Iterates over NarrativeQA samples, cleans both the original NQA text and
-    the text extracted from HTML, writes outputs and logs, and updates a CSV
-    summarizing problematic cases.
-
-    Args:
-        args: Parsed CLI arguments.
-        split: Dataset split name (e.g., "train", "validation", "test").
-        id_map: Mapping from NarrativeQA hashes to Gutenberg IDs.
-    """
-    missing = []
-    processed = set()
-    for i, row in (
-        pbar := tqdm(enumerate(nqa_split), total=len(nqa_split), disable=False)
-    ):
-        gt_id = id_map[row["document"]["id"]]
-        if args.id and str(gt_id) != str(args.id):
-            continue
-
-        if i == args.limit:
-            break
-
-        if gt_id in processed:
-            continue
-
-        input_file = args.input_path / split / f"{gt_id}.htm"
-
-        # Clean the html file
-        pbar.set_description(f"> {input_file}")
-        html = detect_encoding_and_read(input_file)
-        if not html:
-            missing.append(input_file)
-            continue
-
-        clean_and_save(
-            gt_id=gt_id,
-            raw_text=extract_raw_text(html),
-            normalize=args.normalize,
-            output_file=args.output_path / split / f"{gt_id}.cleaned.txt",
-            log_file=args.output_path / split / f"{gt_id}_cleaning.log",
-        )
-
-        processed.add(gt_id)
-
-    log.info(f"> Missing files: {len(missing)}")
-    for file in missing:
-        log.info(f"- {file}")
-
-
-if __name__ == "__main__":
-    args = ScriptArgs().parse_args()
-
-    id_map = get_hash2id_map()  # map from nqa_hash to gutenberg book_id
-
-    # nqa = load_dataset("sapienzanlp/narrativeqa")
-    log.info(f"Loading NarrativeQA dataset from {args.nqa_hf_path}")
-    nqa = load_dataset(args.nqa_hf_path)
-    for split in args.data_splits:
-        nqa_split = nqa[split].filter(lambda x: x["document"]["kind"] == "gutenberg")
-        main(args, nqa_split=nqa_split, split=split, id_map=id_map)
