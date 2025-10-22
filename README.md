@@ -35,7 +35,6 @@ uv run scripts/download_and_clean_books.py
 
 options:
   --output_dir <path> = "data/literaryqa"  # Directory to save downloaded books
-  --normalize <bool> = False # whether to normalize punctuation, can be enabled manually
 ```
 
 ### Data format
