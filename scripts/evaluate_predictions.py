@@ -1,3 +1,4 @@
+import importlib
 import json
 from pathlib import Path
 
@@ -9,6 +10,21 @@ from literaryqa.ngram_metrics import exact_match_score, f1_score, meteor_score, 
 class ScriptArgs(Tap):
     predictions_file: Path  # Path to the predictions JSONL file
     output_file: Path | None = None  # Path to save the computed metrics
+    judge_model: str | None = (
+        "prometheus-eval/prometheus-7b-v2.0"  # Model name for judging (if needed). If None, no judging is performed.
+    )
+
+    def process_args(self):
+        if self.output_file is not None:
+            self.output_file.parent.mkdir(parents=True, exist_ok=True)
+
+        if self.judge_model is not None:
+            try:
+                importlib.import_module("prometheus_eval")
+            except ImportError:
+                raise ImportError(
+                    "prometheus-eval is not installed. Please install it to use the judging functionality."
+                )
 
 
 def main(args: ScriptArgs) -> None:
