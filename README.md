@@ -4,28 +4,30 @@
 
 [![Conference](http://img.shields.io/badge/EMNLP-2025-4b44ce.svg)](https://2025.aclweb.org/)
 [![Paper](http://img.shields.io/badge/paper-ACL--anthology-B31B1B.svg)](https://arxiv.org/abs/2510.13494)
-[![arXiv](https://img.shields.io/badge/arXiv-paper-b31b1b.svg)](https://arxiv.org/abs/2510.13494) 
+[![arXiv](https://img.shields.io/badge/arXiv-paper-008080.svg)](https://arxiv.org/abs/2510.13494) 
 [![Hugging Face Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Dataset-FCD21D)](https://huggingface.co/datasets/sapienzanlp/LiteraryQA)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-green.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 </div>
 
 
-##  Description
+##  📖 Description
 This repository contains the official code for the EMNLP 2025 main conference paper: [LiteraryQA: Towards Effective Evaluation of Long-document Narrative QA](https://arxiv.org/abs/2510.13494) by [Tommaso Bonomo](https://www.linkedin.com/in/tommaso-bonomo/)\*, [Luca Gioffré](https://www.linkedin.com/in/luca-gioffre/)\* and [Roberto Navigli](https://www.linkedin.com/in/robertonavigli/).
+
 The dataset is available at this [🤗 Hugging Face dataset](https://huggingface.co/datasets/sapienzanlp/LiteraryQA).
 If you rather download the data manually, or if you want to run evaluations on your own models' predictions, please follow the instructions below.
 
-## Local download
-
-### ⚠️ Project Gutenberg license disclaimer
+## ⚠️ Project Gutenberg License Disclaimer
 
 LiteraryQA is based on books from Project Gutenberg, which are publicly available under the [Project Gutenberg License](https://www.gutenberg.org/policy/license.html).
 This license holds for users located in the United States, where the books are in the public domain.
 
 We do not distribute the original text of the books, rather our dataset consists of a script that downloads and preprocesses the books from Project Gutenberg.
-Users are responsible for checking the copyright status of each book in their country.
+**Users are responsible for checking the copyright status of each book in their country**.
 
-### Setup and download
+
+## 💾 Local data
+
+### ⚙️ Setup and download
 
 Clone the repository:
 ```bash
@@ -45,10 +47,28 @@ uv run scripts/download_and_clean_books.py
 
 options:
   --output_dir <path> = "data/literaryqa"  # Directory to save downloaded books
+  --write_as_jsonl <bool> = False # Whether to write the complete dataset as JSONL files in output_dir/jsonl
 ```
 
-### Data format
-<span style="font-variant: small-caps;">LiteraryQA</span> is a filtered and improved version of [NarrativeQA](https://arxiv.org/abs/1712.07040). 
+<details>
+<summary>Using <code>venv</code> instead of <code>uv</code></summary>
+
+If you rather use `venv` and `pip`, you can create a virtual environment and install the required packages with:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+```
+
+Then, you can run the download script with:
+```bash
+python scripts/download_and_clean_books.py --output_dir data/literaryqa
+```
+</details>
+
+### 📋 Data format
+LiteraryQA is a filtered and improved version of [NarrativeQA](https://arxiv.org/abs/1712.07040). 
 Here is a sample of the dataset:
 
 ```python
@@ -84,10 +104,10 @@ Here is a sample of the dataset:
 }
 ```
 
-## Evaluation
+## 📊 Evaluation
 
 To run the evaluation of your model's predictions, you must have a file in JSONL format containing the predictions and the reference answers.
-The schema of each entry must be:
+The simplest schema for each entry must be:
 ```python
 {
     "prediction": "your model's answer here",  # (str) i.e., your model's predicted answer to the question
@@ -95,20 +115,37 @@ The schema of each entry must be:
         "first reference answer here",
         "second reference answer here",
     ],
+    # Optional fields if using LLM-as-a-Judge:
+    "question": "the question",  # (str) i.e., the question asked to the model,
+    "title": "the title of the book",  # (str) i.e., the title of the book, to provide context to the LLM judge
+    "summary": "the summary of the book",  # (str) i.e., the summary of the book, used in the summary-based evaluation
 }
 ```
 We provide the predictions of the systems tested in the paper in the `data/predictions/` folder for your reference.
 
-To run the evaluation, use the following command:
+To run the evaluation, first update the environment to use the necessary packages:
+```bash
+uv sync --extra judging
+```
+
+<details>
+<summary>If using <code>pip</code> inside of a virtual environment instead of <code>uv</code></summary>
+
+You can install the extra packages with:
+```bash
+pip install -e ".[judging]"
+```
+</details>
+
+Then, use the following command:
 ```bash
 uv run scripts/evaluate_predictions.py --predictions_file <path_to_your_predictions_file>
 ```
 
 
-## Citation
+## 📝 Citation
 This work has been published at EMNLP 2025 (main conference). If you use any artifact, please cite our paper as follows:
 
-[![arXiv](https://img.shields.io/badge/arXiv-paper-b31b1b.svg)](https://arxiv.org/abs/2510.13494) 
 ```bibtex
 @misc{bonomo2025literaryqa,
       title={{LiteraryQA: Towards Effective Evaluation of Long-document Narrative QA}}, 
@@ -122,6 +159,6 @@ This work has been published at EMNLP 2025 (main conference). If you use any art
 ```
 
 
-## License
+## 📄 License
 
 The data and software are licensed under [Creative Commons Attribution-NonCommercial-ShareAlike 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
