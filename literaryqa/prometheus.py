@@ -10,7 +10,8 @@ try:
     from prometheus_eval.prompts import ABSOLUTE_PROMPT, SCORE_RUBRIC_TEMPLATE
     from prometheus_eval.vllm import VLLM
 except ImportError:
-    pass
+    PrometheusEval = "PrometheusEval"
+
 
 PROMPTS = {
     "summary": {
@@ -52,11 +53,13 @@ ContextType = Literal["references", "summary"]
 def _check_prometheus_available() -> None:
     """Check if prometheus_eval is available and raise a helpful error if not."""
     if "prometheus_eval" not in sys.modules:
-        raise ImportError("prometheus-eval is not installed. Please install it with: pip install prometheus-eval")
+        raise ImportError("prometheus-eval is not installed. Please install it with: uv add prometheus-eval")
 
 
 def get_judge(
-    model_name: str = DEFAULT_MODEL, tensor_parallel_size: int = DEFAULT_TENSOR_PARALLEL_SIZE
+    model_name: str = DEFAULT_MODEL,
+    tensor_parallel_size: int = DEFAULT_TENSOR_PARALLEL_SIZE,
+    max_tokens: int = DEFAULT_MAX_TOKENS,
 ) -> PrometheusEval:
     """Initialize and return a PrometheusEval judge instance.
 
@@ -71,7 +74,7 @@ def get_judge(
         ImportError: If prometheus-eval is not installed.
     """
     _check_prometheus_available()
-    model = VLLM(model=model_name, tensor_parallel_size=tensor_parallel_size)
+    model = VLLM(model=model_name, tensor_parallel_size=tensor_parallel_size, max_model_len=max_tokens)
     judge = PrometheusEval(model=model, absolute_grade_template=ABSOLUTE_PROMPT)
     return judge
 
@@ -145,7 +148,7 @@ def evaluate_with_prometheus(
     tensor_parallel_size: int = DEFAULT_TENSOR_PARALLEL_SIZE,
     max_tokens: int = DEFAULT_MAX_TOKENS,
     temperature: float = DEFAULT_TEMPERATURE,
-) -> tuple[list[str], list[int]]:
+) -> list[int]:
     """Evaluate predictions using PrometheusEval.
 
     Args:
@@ -161,9 +164,7 @@ def evaluate_with_prometheus(
         temperature: Temperature for sampling.
 
     Returns:
-        tuple: (feedbacks, scores) where:
-            - feedbacks: List of feedback strings from the judge
-            - scores: List of integer scores from the judge
+        scores: List of integer scores from the judge
 
     Raises:
         ValueError: If inputs are invalid or inconsistent.
@@ -190,7 +191,7 @@ def evaluate_with_prometheus(
     rubric = get_rubric(context)
 
     logger.info("Starting absolute grading with PrometheusEval")
-    feedbacks, scores = judge.absolute_grade(
+    _, scores = judge.absolute_grade(
         instructions=instructions,
         responses=predictions,
         reference_answers=reference_answers,
@@ -204,4 +205,4 @@ def evaluate_with_prometheus(
         },
     )
     logger.info("Completed absolute grading with PrometheusEval")
-    return feedbacks, scores
+    return scores

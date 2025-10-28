@@ -147,38 +147,22 @@ def meteor_score(
     NLTK_VERSION = version.parse(importlib_metadata.version("nltk"))
 
     # Ensure required NLTK resources are downloaded
-    try:
-        nltk.data.find("corpora/wordnet")
-    except LookupError:
-        nltk.download("wordnet")
+    nltk.download("wordnet", quiet=True)
 
     if NLTK_VERSION >= version.Version("3.6.4"):
         from nltk import word_tokenize
     else:
         raise ImportError("nltk>=3.6.4 is required for METEOR metric")
 
-    if NLTK_VERSION >= version.Version("3.6.5"):
-        # the version of METEOR in NLTK version 3.6.5 and earlier expect tokenized inputs
-        scores = [
-            nltk_meteor_score.meteor_score(
-                [word_tokenize(ref) for ref in refs],
-                word_tokenize(pred),
-                alpha=alpha,
-                beta=beta,
-                gamma=gamma,
-            )
-            for refs, pred in zip(references, predictions)
-        ]
-    else:
-        scores = [
-            nltk_meteor_score.meteor_score(
-                [[word_tokenize(ref) for ref in group] for group in references][0],
-                word_tokenize(pred),
-                alpha=alpha,
-                beta=beta,
-                gamma=gamma,
-            )
-            for ref, pred in zip(references, predictions)
-        ]
+    scores = [
+        nltk_meteor_score.meteor_score(
+            [word_tokenize(ref) for ref in refs],
+            word_tokenize(pred),
+            alpha=alpha,
+            beta=beta,
+            gamma=gamma,
+        )
+        for refs, pred in zip(references, predictions)
+    ]
 
     return np.mean(scores).item()
