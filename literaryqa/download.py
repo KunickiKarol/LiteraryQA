@@ -132,9 +132,16 @@ def download_htm_from_gutenberg(book_id: str, save_dir: Path, split: str, pbar: 
             if text:
                 break
 
+        # Write url to logfile
+        with open(log_file, "a") as f:
+            if not text:
+                f.write(f"{book_id}\tFAILED\tAll mirrors failed\n")
+            else:
+                f.write(f"{book_id}\tSUCCESS\t{url}\n")
+
         if not text:
             logger.error(f"Failed to download {book_id}")
-            with open(log_file, "a") as log_file:
-                print(book_id, file=log_file)
+            with open(log_file, "a") as f:
+                f.write(f"{book_id}\tFAILED\tAll mirrors failed\n")
 
     return text
