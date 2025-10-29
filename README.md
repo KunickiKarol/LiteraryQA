@@ -11,7 +11,7 @@
 
 
 ##  📖 Description
-LiteraryQA is a long-context question-answering benchmark focusing on literary works.
+LiteraryQA is a **long-context question-answering benchmark** focusing on literary works.
 We derived this dataset from [NarrativeQA](https://arxiv.org/abs/1712.07040), addressing issues with the raw text of books, with the crowdsourced QAs, and with the metrics employed to evaluate systems on this kind of benchmarks.
 
 For further details, please refer to our EMNLP 2025 main conference paper: [LiteraryQA: Towards Effective Evaluation of Long-document Narrative QA](https://arxiv.org/abs/2510.13494) by [Tommaso Bonomo](https://www.linkedin.com/in/tommaso-bonomo/)\*, [Luca Gioffré](https://www.linkedin.com/in/luca-gioffre/)\* and [Roberto Navigli](https://www.linkedin.com/in/robertonavigli/).
@@ -192,7 +192,6 @@ This work has been published at EMNLP 2025 (main conference). If you use any art
     pages = "xxx--xxx",
     abstract = "Question Answering (QA) on narrative text poses a unique challenge to current systems, requiring a deep understanding of long, complex documents. However, the reliability of NarrativeQA, the most widely used benchmark in this domain, is hindered by noisy documents and flawed QA pairs. In this work, we introduce LiteraryQA, a high-quality subset of NarrativeQA focused on literary works. Using a human- and LLM-validated pipeline, we identify and correct low-quality QA samples while removing extraneous text from source documents. We then carry out a meta-evaluation of automatic metrics to clarify how systems should be evaluated on LiteraryQA. This analysis reveals that all n-gram-based metrics have a low system-level correlation to human judgment, while LLM-as-a-Judge evaluations, even with small open-weight models, can strongly agree with the ranking identified by humans. Finally, we benchmark a set of long-context LLMs on LiteraryQA. We release our code and data at https://github.com/SapienzaNLP/LiteraryQA."
 }
-
 ```
 
 
