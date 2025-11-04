@@ -1,20 +1,19 @@
 <div align="center"><img src="assets/literaryqa_icon.png" width="700"></div>
 
 <div align="center">
-
-[![Conference](http://img.shields.io/badge/EMNLP-2025-4b44ce.svg)](https://2025.aclweb.org/)
-[![Paper](http://img.shields.io/badge/paper-ACL--anthology-B31B1B.svg)](https://arxiv.org/abs/2510.13494)
-[![arXiv](https://img.shields.io/badge/arXiv-paper-008080.svg)](https://arxiv.org/abs/2510.13494) 
-[![Hugging Face Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Dataset-FCD21D)](https://huggingface.co/datasets/sapienzanlp/LiteraryQA)
-[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-green.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
+<a href="https://2025.emnlp.org/" style="line-height: 0;" target="_blank"><img src="http://img.shields.io/badge/EMNLP-2025-4b44ce.svg" style="display: block; margin: 0;"/></a>
+<a href="https://aclanthology.org/2025.emnlp-main.1729/" style="line-height: 0;" target="_blank"><img src="http://img.shields.io/badge/paper-ACL--anthology-B31B1B.svg" style="display: block; margin: 0;"/></a>
+<a href="https://arxiv.org/abs/2510.13494" style="line-height: 0;" target="_blank"><img src="https://img.shields.io/badge/arXiv-2510.13494-008080.svg" style="display: block; margin: 0;"/></a>
+<a href="https://huggingface.co/datasets/sapienzanlp/LiteraryQA" style="line-height: 0;" target="_blank"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Dataset-FCD21D" style="display: block; margin: 0;"/></a>
+<a href="https://creativecommons.org/licenses/by-nc/4.0/" style="line-height: 0;" target="_blank"><img src="https://img.shields.io/badge/License-CC%20BY--NC%204.0-green.svg" style="display: block; margin: 0;"/></a>
 </div>
 
 
 ##  📖 Description
 LiteraryQA is a **long-context question-answering benchmark** focusing on literary works.
-We derived this dataset from [NarrativeQA](https://arxiv.org/abs/1712.07040), addressing issues with the raw text of books, with the crowdsourced QAs, and with the metrics employed to evaluate systems on this kind of benchmarks.
+We derived this dataset from [NarrativeQA](https://aclanthology.org/Q18-1023/), addressing issues with the raw text of books, with the crowdsourced QAs, and with the metrics employed to evaluate systems on this kind of benchmarks.
 
-For further details, please refer to our EMNLP 2025 main conference paper: [LiteraryQA: Towards Effective Evaluation of Long-document Narrative QA](https://arxiv.org/abs/2510.13494) by [Tommaso Bonomo](https://www.linkedin.com/in/tommaso-bonomo/)\*, [Luca Gioffré](https://www.linkedin.com/in/luca-gioffre/)\* and [Roberto Navigli](https://www.linkedin.com/in/robertonavigli/).
+For further details, please refer to our EMNLP 2025 main conference paper: [LiteraryQA: Towards Effective Evaluation of Long-document Narrative QA]([https://arxiv.org/abs/2510.13494](https://aclanthology.org/2025.emnlp-main.1729/)) by [Tommaso Bonomo](https://www.linkedin.com/in/tommaso-bonomo/)\*, [Luca Gioffré](https://www.linkedin.com/in/luca-gioffre/)\* and [Roberto Navigli](https://www.linkedin.com/in/robertonavigli/).
 
 This dataset is available on [🤗 Hugging Face](https://huggingface.co/datasets/sapienzanlp/LiteraryQA).
 If you rather download the data manually, or if you want to run evaluations on your own models' predictions, please follow the instructions below.
@@ -177,20 +176,23 @@ This work has been published at EMNLP 2025 (main conference). If you use any art
 
 ```bibtex
 @inproceedings{bonomo-etal-2025-literaryqa,
-    title = "{LiteraryQA: Towards Effective Evaluation of Long-Document Narrative QA}",
+    title = "{L}iterary{QA}: Towards Effective Evaluation of Long-document Narrative {QA}",
     author = "Bonomo, Tommaso  and
       Gioffr{\'e}, Luca  and
       Navigli, Roberto",
-    editor = "",
-    booktitle = "Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing (EMNLP)",
+    editor = "Christodoulopoulos, Christos  and
+      Chakraborty, Tanmoy  and
+      Rose, Carolyn  and
+      Peng, Violet",
+    booktitle = "Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing",
     month = nov,
     year = "2025",
     address = "Suzhou, China",
     publisher = "Association for Computational Linguistics",
-    url = "https://aclanthology.org/2025.emnlp-main.xxx",
-    doi = "",
-    pages = "xxx--xxx",
-    abstract = "Question Answering (QA) on narrative text poses a unique challenge to current systems, requiring a deep understanding of long, complex documents. However, the reliability of NarrativeQA, the most widely used benchmark in this domain, is hindered by noisy documents and flawed QA pairs. In this work, we introduce LiteraryQA, a high-quality subset of NarrativeQA focused on literary works. Using a human- and LLM-validated pipeline, we identify and correct low-quality QA samples while removing extraneous text from source documents. We then carry out a meta-evaluation of automatic metrics to clarify how systems should be evaluated on LiteraryQA. This analysis reveals that all n-gram-based metrics have a low system-level correlation to human judgment, while LLM-as-a-Judge evaluations, even with small open-weight models, can strongly agree with the ranking identified by humans. Finally, we benchmark a set of long-context LLMs on LiteraryQA. We release our code and data at https://github.com/SapienzaNLP/LiteraryQA."
+    url = "https://aclanthology.org/2025.emnlp-main.1729/",
+    pages = "34074--34095",
+    ISBN = "979-8-89176-332-6",
+    abstract = "Question Answering (QA) on narrative text poses a unique challenge to current systems, requiring a deep understanding of long, complex documents. However, the reliability of NarrativeQA, the most widely used benchmark in this domain, is hindered by noisy documents and flawed QA pairs. In this work, we introduce LiteraryQA, a high-quality subset of NarrativeQA focused on literary works. Using a human- and LLM-validated pipeline, we identify and correct low-quality QA samples while removing extraneous text from source documents. We then carry out a meta-evaluation of automatic metrics to clarify how systems should be evaluated on LiteraryQA.This analysis reveals that all n-gram-based metrics have a low system-level correlation to human judgment, while LLM-as-a-Judge evaluations, even with small open-weight models, can strongly agree with the ranking identified by humans.Finally, we benchmark a set of long-context LLMs on LiteraryQA. We release our code and data at https://github.com/sapienzaNLP/LiteraryQA."
 }
 ```
 
