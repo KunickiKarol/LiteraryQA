@@ -17,7 +17,7 @@ LITERARYQA_URLS = Path("data/literaryqa_urls.tsv")
 
 MAX_DOWNLOAD_RETRIES = 3
 RETRY_SLEEP_SECONDS = 2
-MAX_WORKERS = 16  # <- ważne
+MAX_WORKERS = 8  # <- ważne
 
 
 class ScriptArgs(Tap):
