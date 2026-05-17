@@ -23,7 +23,7 @@ START_MARKERS = [
     "while Coxeter and Mason write Novall alone in , and Novall Senior thereafter. I have not thought it worth while to note the variants of the several texts on this point.",  # 44015
 ]
 END_MARKERS = [
-    "***** This file should be named 23489-h.htm or 23489-h.zip *****",
+    "***** This file should be named"
     "THE FULL PROJECT GUTENBERG™ LICENSE",
     "End of the Project Gutenberg",
     "END OF THIS PROJECT GUTENBERG",
