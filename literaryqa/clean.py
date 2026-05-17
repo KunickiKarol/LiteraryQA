@@ -19,6 +19,7 @@ START_MARKERS = [
     "*** START OF THIS PROJECT GUTENBERG EBOOK",
     "***START OF THE PROJECT GUTENBERG EBOOK",
     "*** START OF THE PROJECT GUTENBERG EBOOK",
+    "Other information and formats:", # 2153
     # specific markers for some books
     "while Coxeter and Mason write Novall alone in , and Novall Senior thereafter. I have not thought it worth while to note the variants of the several texts on this point.",  # 44015
 ]
@@ -28,6 +29,7 @@ END_MARKERS = [
     "End of Project Gutenberg",
     "*** START: FULL LICENSE",
     "THE FULL PROJECT GUTENBERG LICENSE",
+    "***** This file should be named", # 23489
     # "this etext was produced from",  # 5013 --> this breaks the text
     # "this e-text was produced from", # this patterns is found also at the start of the html
     "NOW you can get ADVANCE COPIES of the best",  # 50571
