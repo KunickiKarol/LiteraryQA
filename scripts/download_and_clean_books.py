@@ -2,6 +2,7 @@ import json
 import time
 from csv import DictReader, DictWriter
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from loguru import logger
 from tap import Tap
@@ -16,6 +17,7 @@ LITERARYQA_URLS = Path("data/literaryqa_urls.tsv")
 
 MAX_DOWNLOAD_RETRIES = 3
 RETRY_SLEEP_SECONDS = 2
+MAX_WORKERS = 16  # <- ważne
 
 
 class ScriptArgs(Tap):
@@ -29,14 +31,7 @@ class ScriptArgs(Tap):
         self.logging_dir.mkdir(parents=True, exist_ok=True)
 
 
-def download_with_retry(
-    book_id: str,
-    split: str,
-    url: str,
-    output_dir: Path,
-    logging_dir: Path,
-    pbar,
-):
+def download_with_retry(book_id: str, split: str, url: str, output_dir: Path, logging_dir: Path):
     """Download a Gutenberg HTML file with retries and logging."""
     html_path = output_dir / split / f"{book_id}.htm"
     html_path.parent.mkdir(parents=True, exist_ok=True)
@@ -47,31 +42,47 @@ def download_with_retry(
 
     for attempt in range(1, MAX_DOWNLOAD_RETRIES + 1):
         logger.info(f"[DOWNLOAD] {book_id} attempt {attempt}/{MAX_DOWNLOAD_RETRIES}")
+
         result = download_htm_from_gutenberg(
             book_id=book_id,
             split=split,
             save_dir=output_dir,
             log_dir=logging_dir,
-            pbar=pbar,
         )
 
         if result is not None and html_path.exists():
             return html_path
 
         if attempt < MAX_DOWNLOAD_RETRIES:
-            logger.warning(
-                f"[RETRY] Download failed for {book_id}, retrying..."
-            )
+            logger.warning(f"[RETRY] Download failed for {book_id}, retrying...")
             time.sleep(RETRY_SLEEP_SECONDS)
 
     logger.error(f"[FAILED] Download permanently failed for {book_id}")
     return None
 
 
+def download_task(args):
+    doc_id, book_id, url, split, output_dir, logging_dir = args
+
+    result = download_with_retry(
+        book_id=book_id,
+        split=split,
+        url=url,
+        output_dir=output_dir,
+        logging_dir=logging_dir,
+    )
+
+    if result is None:
+        return (doc_id, book_id, split, url)
+    return None
+
+
 def main(args: ScriptArgs) -> None:
     logger.info(f"Starting process. Output dir: {args.output_dir}")
 
-    # Load URLs
+    # -------------------
+    # LOAD URLS
+    # -------------------
     literaryqa_urls = {}
     with LITERARYQA_URLS.open("r", encoding="utf-8") as f:
         reader = DictReader(f, delimiter="\t")
@@ -82,30 +93,43 @@ def main(args: ScriptArgs) -> None:
             )
 
     logger.info(
-        "Split counts: "
-        + str({k: len(v) for k, v in literaryqa_urls.items()})
+        "Split counts: " + str({k: len(v) for k, v in literaryqa_urls.items()})
     )
 
-    # -------------------
-    # DOWNLOAD STEP
-    # -------------------
     errors = []
 
+    # -------------------
+    # DOWNLOAD (MULTITHREADING)
+    # -------------------
     for split, samples in literaryqa_urls.items():
         logger.info(f"Downloading split: {split}")
-        for doc_id, book_id, url in (pbar := tqdm(samples, desc=f"Downloading {split}")):
-            result = download_with_retry(
-                book_id=book_id,
-                split=split,
-                url=url,
-                output_dir=args.output_dir,
-                logging_dir=args.logging_dir,
-                pbar=pbar,
-            )
-            if result is None:
-                errors.append(
-                    {"doc_id": doc_id, "book_id": book_id, "split": split, "url": url}
-                )
+
+        tasks = [
+            (doc_id, book_id, url, split, args.output_dir, args.logging_dir)
+            for doc_id, book_id, url in samples
+        ]
+
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            futures = [
+                executor.submit(download_task, t)
+                for t in tasks
+            ]
+
+            for f in tqdm(
+                as_completed(futures),
+                total=len(futures),
+                desc=f"Downloading {split}",
+            ):
+                result = f.result()
+                if result is not None:
+                    errors.append(
+                        {
+                            "doc_id": result[0],
+                            "book_id": result[1],
+                            "split": result[2],
+                            "url": result[3],
+                        }
+                    )
 
     if errors:
         error_log = args.logging_dir / "failed_literaryqa_downloads.tsv"
@@ -118,19 +142,21 @@ def main(args: ScriptArgs) -> None:
             writer.writeheader()
             for err in errors:
                 writer.writerow(err)
+
         logger.error(f"Logged {len(errors)} download failures to {error_log}")
 
     # -------------------
-    # CLEANING STEP
+    # CLEANING STEP (SEQUENTIAL - OK)
     # -------------------
     for split, samples in literaryqa_urls.items():
         logger.info(f"Cleaning split: {split}")
+
         processed = 0
         missing = []
 
         (args.logging_dir / split).mkdir(parents=True, exist_ok=True)
 
-        for _, book_id, _ in (pbar := tqdm(samples, desc=f"Cleaning {split}")):
+        for _, book_id, _ in tqdm(samples, desc=f"Cleaning {split}"):
             input_html = args.output_dir / split / f"{book_id}.htm"
             output_txt = args.output_dir / split / f"{book_id}.cleaned.txt"
             log_file = args.logging_dir / split / f"{book_id}_cleaning.log"
@@ -155,6 +181,7 @@ def main(args: ScriptArgs) -> None:
                 output_file=output_txt,
                 log_file=log_file,
             )
+
             processed += 1
 
         logger.info(f"Processed {processed} books for split {split}")
@@ -174,6 +201,7 @@ def main(args: ScriptArgs) -> None:
 
     for splitpath in ANNOTATIONS_FOLDER.glob("*.jsonl"):
         split = splitpath.stem
+
         with splitpath.open("r", encoding="utf-8") as f:
             split_data = [json.loads(line) for line in f]
 
@@ -181,11 +209,13 @@ def main(args: ScriptArgs) -> None:
             for item in tqdm(split_data, desc=f"Writing {split}"):
                 book_id = item["gutenberg_id"]
                 cleaned_path = args.output_dir / split / f"{book_id}.cleaned.txt"
+
                 item["text"] = (
                     cleaned_path.read_text(encoding="utf-8")
                     if cleaned_path.exists()
                     else None
                 )
+
                 f_out.write(json.dumps(item) + "\n")
 
     logger.info(f"JSONL files written to {output_folder}")
