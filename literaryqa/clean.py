@@ -9,12 +9,12 @@ import chardet
 from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
 from bs4.element import NavigableString
 from ftfy import fix_text
-from literaryqa.download import is_text_corrupted
 from loguru import logger
 
 warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
 START_MARKERS = [
+    "Other information and formats:",
     "***START OF THIS PROJECT GUTENBERG EBOOK",
     "*** START OF THIS PROJECT GUTENBERG EBOOK",
     "***START OF THE PROJECT GUTENBERG EBOOK",
@@ -23,6 +23,8 @@ START_MARKERS = [
     "while Coxeter and Mason write Novall alone in , and Novall Senior thereafter. I have not thought it worth while to note the variants of the several texts on this point.",  # 44015
 ]
 END_MARKERS = [
+    "***** This file should be named 23489-h.htm or 23489-h.zip *****",
+    "THE FULL PROJECT GUTENBERG™ LICENSE",
     "End of the Project Gutenberg",
     "END OF THIS PROJECT GUTENBERG",
     "End of Project Gutenberg",
@@ -111,6 +113,37 @@ OTHER_MARKERS = [
     "project-gutenberg",
 ]
 
+MOJIBAKE_PATTERNS = [
+    r"Ã.",
+    r"â€™",
+    r"â€œ",
+    r"â€",
+    r"ðŸ",  # Common UTF-8 misinterpretations
+    r"â€”",
+    r"â€¦",
+    r"â€“",
+    r"â€˜",  # Fancy punctuation errors
+]
+
+
+def is_text_corrupted(text):
+    """Heuristically detect whether decoded text appears corrupted (mojibake).
+
+    The function searches for a set of common mojibake patterns that indicate
+    incorrect UTF-8 decoding. If the ratio of matched characters to the total
+    text length exceeds 0.5% (for texts longer than 100 characters), the text
+    is considered corrupted and in need of fixing.
+
+    Args:
+        text: The decoded text to inspect.
+
+    Returns:
+        True if the text likely contains decoding artifacts; False otherwise.
+    """
+    # Count occurrences of mojibake patterns
+    corrupted_matches = sum(len(re.findall(pattern, text)) for pattern in MOJIBAKE_PATTERNS)
+    # If more than 0.5% of characters are corrupted, we apply ftfy
+    return (corrupted_matches / len(text)) > 0.005 if len(text) > 100 else False
 
 def _keep_alt_img_text(soup: BeautifulSoup):
     """Replace images with their title/alt text and merge adjacent content.
