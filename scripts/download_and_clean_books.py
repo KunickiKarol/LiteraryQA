@@ -8,7 +8,7 @@ from loguru import logger
 from tap import Tap
 from tqdm import tqdm
 
-from literaryqa.clean import clean_and_save, detect_encoding_and_read, extract_raw_text
+from literaryqa.clean import clean_and_save_with_tags, detect_encoding_and_read, extract_raw_text_with_tags
 from literaryqa.download import download_htm_from_gutenberg
 
 
@@ -150,40 +150,42 @@ def main(args: ScriptArgs) -> None:
     # -------------------
     for split, samples in literaryqa_urls.items():
         logger.info(f"Cleaning split: {split}")
-
         processed = 0
         missing = []
-
         (args.logging_dir / split).mkdir(parents=True, exist_ok=True)
-
         for _, book_id, _ in tqdm(samples, desc=f"Cleaning {split}"):
             input_html = args.output_dir / split / f"{book_id}.htm"
             output_txt = args.output_dir / split / f"{book_id}.cleaned.txt"
+            tag_map_file = args.output_dir / split / f"{book_id}.tagmap.json"
             log_file = args.logging_dir / split / f"{book_id}_cleaning.log"
-
+            
             if output_txt.exists():
                 logger.info(f"[SKIP CLEAN] {book_id} already processed")
                 continue
-
             if not input_html.exists():
                 missing.append(book_id)
                 continue
-
+                
             html = detect_encoding_and_read(input_html)
             if html is None:
                 missing.append(book_id)
                 continue
-
-            clean_and_save(
+                
+            # Extract text WITH tag information
+            raw_lines, tags_lines = extract_raw_text_with_tags(html)
+            
+            # Clean and save with tag mapping
+            clean_and_save_with_tags(
                 gt_id=book_id,
-                raw_text=extract_raw_text(html),
+                raw_lines=raw_lines,
+                tags_lines=tags_lines,
                 normalize=True,
                 output_file=output_txt,
+                tag_map_file=tag_map_file,
                 log_file=log_file,
             )
-
             processed += 1
-
+            
         logger.info(f"Processed {processed} books for split {split}")
         if missing:
             logger.warning(f"{len(missing)} missing/unreadable books in {split}")
