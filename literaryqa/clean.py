@@ -445,7 +445,7 @@ def detect_encoding_and_read(file_path: Path) -> str:
     return text
 
 
-def remove_gutenberg_info(raw_text: str | list[str], gt_id: int, log_file: Path | None = None):
+def remove_gutenberg_info(raw_text: str | list[str], tags_lines: list[str], gt_id: int, log_file: Path | None = None):
     """Remove Gutenberg boilerplate from raw text and track markers.
 
     Scans the provided text for start/end markers, removes lines matching skip
@@ -454,6 +454,7 @@ def remove_gutenberg_info(raw_text: str | list[str], gt_id: int, log_file: Path 
 
     Args:
         raw_text: The input text either as a single string or a list of lines.
+        tags_lines: List of tag names corresponding to each line.
         gt_id: Gutenberg book ID (used for logging context only).
         log_file: Optional path to a log file where matched markers/lines are recorded.
 
@@ -473,7 +474,7 @@ def remove_gutenberg_info(raw_text: str | list[str], gt_id: int, log_file: Path 
     if log_file:
         log_out = open(log_file, "w")
         log_out.write("Line_id\tMarker\tLine\t\n")
-    for i, line in enumerate(splitted):
+    for i, (line, tag) in enumerate(zip(splitted, tags_lines)):
         line = line.strip()
         if not line:
             continue
@@ -571,11 +572,12 @@ def remove_gutenberg_info(raw_text: str | list[str], gt_id: int, log_file: Path 
                 break
         if skip_flag:
             continue
-        text.append(line)
+        text.append((line, tag))
     if log_file:
         log_out.close()
 
-    return "\n".join(text)
+    return text
+
 
 
 def clean_and_save(
@@ -607,3 +609,192 @@ def clean_and_save(
         output_file.parent.mkdir(parents=True, exist_ok=True)
         with open(output_file, "w") as out_file:
             out_file.write(text)
+
+# Add this new function to your cleaning module
+
+def extract_raw_text_with_tags(html_content, **kwargs):
+    """Extract readable raw text with tag information preserved.
+    
+    Returns:
+        tuple: (text_lines, tag_map) where tag_map is a list of tuples (line_index, tag_name)
+    """
+    # [... same preprocessing as extract_raw_text ...]
+    table = {
+        '<div class="stage-direction center">': '<div class="stage-direction">',
+    }
+    html_content = html_content.translate(table)
+    soup = BeautifulSoup(html_content, "html5lib")
+
+    # [... apply all the same transformations ...]
+    if kwargs.get("keep_alt_img_text", True):
+        _keep_alt_img_text(soup)
+    if kwargs.get("remove_img", True):
+        for class_name in ["tnote", "transnote", "covernote"]:
+            for div in soup.find_all("div", class_=class_name):
+                div.decompose()
+    if kwargs.get("remove_tn", True):
+        for class_name in ["footnote", "footnotes"]:
+            for div in soup.find_all("div", class_=class_name):
+                div.decompose()
+    if kwargs.get("remove_pagenum", True):
+        for class_name in ["pagenum", "ns", "pageno"]:
+            for span in soup.find_all("span", class_=class_name):
+                span.decompose()
+    if kwargs.get("remove_citation", True):
+        for a_tag in soup.find_all("a", class_="citation"):
+            a_tag.decompose()
+    if kwargs.get("remove_links", True):
+        for a_tag in soup.find_all("a", href=True):
+            a_tag.decompose()
+    if kwargs.get("remove_sidebar", True):
+        _remove_sidebar(soup)
+    if kwargs.get("keep_dropcap", True):
+        for div in soup.find_all("div", class_="drop-cap"):
+            div.name = "p"
+        for tag in soup.find_all("div", class_="center"):
+            tag.unwrap()
+    if kwargs.get("keep_span_margin_left", True):
+        _keep_span_margin_left(soup)
+    if kwargs.get("keep_poem", True):
+        for poem_div in soup.find_all("div", class_="poem"):
+            for stanza_div in poem_div.find_all("div", class_="stanza"):
+                for span in stanza_div.find_all("span"):
+                    span.unwrap()
+                for br in stanza_div.find_all("br"):
+                    br.replace_with("\n")
+                stanza_div.unwrap()
+            for p in poem_div.find_all("p"):
+                p.insert_after(soup.new_tag("br"))
+                p.unwrap()
+            poem_div.name = "pre"
+            del poem_div["class"]
+    if kwargs.get("keep_stage_dir", True):
+        for div in soup.find_all("div", class_="stage-direction"):
+            div.name = "p"
+    if kwargs.get("keep_scene_desc", True):
+        for div in soup.find_all("div", class_="scene-description"):
+            div.name = "p"
+    if kwargs.get("keep_songs", True):
+        _keep_songs(soup)
+
+    for div_id in ["notes", "footnotes", "linenotes"]:
+        for tag in soup.find_all("div", id=div_id):
+            tag.decompose()
+    for p in soup.find_all("p", class_="hang"):
+        p.decompose()
+
+    allowed_tags = {"h1", "h2", "h3", "h4", "h5", "h6", "p", "pre"}
+    output_lines = []
+    tags_lines = []  # Store (line_index, tag_name) tuples
+
+    for tag in soup.find_all(allowed_tags):
+        if tag.name == "pre":
+            text = tag.get_text(separator="\n", strip=True)
+        else:
+            text = tag.get_text(separator=" ", strip=True)
+
+        # [... same text cleaning as before ...]
+        if kwargs.get("remove_pagenum", True):
+            text = re.sub(r"\[(Pg|Page)\s*\d+\]", " ", text, flags=re.IGNORECASE)
+            text = re.sub(r"\[p\s*\d+\s*\]", " ", text, flags=re.IGNORECASE)
+            text = re.sub(r"^p\.\s+\d+:.*$", " ", text, flags=re.IGNORECASE | re.DOTALL | re.MULTILINE)
+        if kwargs.get("remove_citation", True):
+            text = re.sub(r"\[\d+\]", " ", text)
+        if kwargs.get("remove_footnotes", True):
+            text = re.sub(r"\[[ivxlcm]+\]", " ", text)
+        if kwargs.get("remove_transnotes", True):
+            text = re.sub(r"\[transcriber.*s note.*\]", " ", text, flags=re.IGNORECASE | re.DOTALL)
+            text = re.sub(r"^transcriber.*s note[s]?:?", " ", text, flags=re.IGNORECASE | re.MULTILINE)
+        if kwargs.get("normalize_whitespace", True):
+            text = re.sub(r"\s+([?!.,:;])", r"\1", text)
+            text = re.sub(r"\(\s+", "(", text)
+            text = re.sub(r"\s+\)", ")", text)
+            text = text.replace(" ( ) ", "")
+            if tag.name != "pre":
+                text = text.replace("\n", " ")
+                text = " ".join(text.split())
+
+        if not text or (kwargs.get("remove_pagenum", True) and 
+                       re.search(r"^p. \d+:", text, flags=re.IGNORECASE | re.DOTALL | re.MULTILINE)):
+            continue
+
+        if kwargs.get("remove_gutenberg_preface", True):
+            for pattern in GUTENBERG_PRODUCTION_PATTERNS:
+                text = re.sub(pattern, "", text, flags=re.IGNORECASE | re.MULTILINE)
+
+        output_lines.append(text)
+        tags_lines.append(tag.name)  # Store line index and tag name
+
+    return output_lines, tags_lines
+
+def build_text_and_index(items):
+    parts = []
+    tags_map = {}
+
+    cursor = 0  # aktualna pozycja w finalnym stringu
+
+    for tag_id, (text, tag_name) in enumerate(items):
+        start = cursor
+        parts.append(text)
+        cursor += len(text)
+
+        end = cursor - 1  # inclusive
+
+        tags_map[tag_id] = {
+            "tag_name": tag_name,
+            "tag_start": start,
+            "tag_end": end
+        }
+
+        # dodajemy newline tylko jeśli to nie ostatni element
+        if tag_id != len(items) - 1:
+            parts.append("\n")
+            cursor += 1
+
+    full_text = "".join(parts)
+    return full_text, tags_map
+
+def clean_and_save_with_tags(
+    gt_id: int,
+    raw_lines: list[str],
+    tags_lines: list,
+    normalize: bool = False,
+    output_file: Path | None = None,
+    tag_map_file: Path | None = None,
+    log_file: Path | None = None,
+):
+    """Clean text and save with tag mapping preserved.
+    
+    Args:
+        gt_id: Gutenberg book ID
+        raw_lines: Raw extracted text lines
+        tags_lines: List of tag names corresponding to each line
+        normalize: Whether to normalize quotes and dashes
+        output_file: Where to save cleaned text
+        tag_map_file: Where to save tag mapping (JSON format)
+        log_file: Log file for marker tracking
+    """
+    # Clean text
+    cleaned_lines = remove_gutenberg_info(raw_text=raw_lines, tags_lines=tags_lines, gt_id=gt_id, log_file=log_file)
+    
+    
+    if normalize:
+        cleaned_lines = [
+                (
+                text.replace("--", "—")
+                .replace("——", "—")
+                .translate(str.maketrans({"“": '"', "”": '"', "‘": "'", "’": "'"})),
+                tag
+            )
+            for text, tag in cleaned_lines
+        ]
+    final_text,tag_map = build_text_and_index(cleaned_lines)
+    # Save cleaned text
+    if output_file:
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_file, "w", encoding="utf-8") as out_file:
+            out_file.write(final_text)
+    
+    with open(tag_map_file, "w", encoding="utf-8") as f:
+        json.dump(tag_map, f, ensure_ascii=False, indent=2)
+    
