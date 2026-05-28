@@ -98,52 +98,52 @@ def main(args: ScriptArgs) -> None:
 
     errors = []
 
-    # -------------------
-    # DOWNLOAD (MULTITHREADING)
-    # -------------------
-    for split, samples in literaryqa_urls.items():
-        logger.info(f"Downloading split: {split}")
+    # # -------------------
+    # # DOWNLOAD (MULTITHREADING)
+    # # -------------------
+    # for split, samples in literaryqa_urls.items():
+    #     logger.info(f"Downloading split: {split}")
 
-        tasks = [
-            (doc_id, book_id, url, split, args.output_dir, args.logging_dir)
-            for doc_id, book_id, url in samples
-        ]
+    #     tasks = [
+    #         (doc_id, book_id, url, split, args.output_dir, args.logging_dir)
+    #         for doc_id, book_id, url in samples
+    #     ]
 
-        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            futures = [
-                executor.submit(download_task, t)
-                for t in tasks
-            ]
+    #     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+    #         futures = [
+    #             executor.submit(download_task, t)
+    #             for t in tasks
+    #         ]
 
-            for f in tqdm(
-                as_completed(futures),
-                total=len(futures),
-                desc=f"Downloading {split}",
-            ):
-                result = f.result()
-                if result is not None:
-                    errors.append(
-                        {
-                            "doc_id": result[0],
-                            "book_id": result[1],
-                            "split": result[2],
-                            "url": result[3],
-                        }
-                    )
+    #         for f in tqdm(
+    #             as_completed(futures),
+    #             total=len(futures),
+    #             desc=f"Downloading {split}",
+    #         ):
+    #             result = f.result()
+    #             if result is not None:
+    #                 errors.append(
+    #                     {
+    #                         "doc_id": result[0],
+    #                         "book_id": result[1],
+    #                         "split": result[2],
+    #                         "url": result[3],
+    #                     }
+    #                 )
 
-    if errors:
-        error_log = args.logging_dir / "failed_literaryqa_downloads.tsv"
-        with error_log.open("w", encoding="utf-8") as f:
-            writer = DictWriter(
-                f,
-                fieldnames=["doc_id", "book_id", "split", "url"],
-                delimiter="\t",
-            )
-            writer.writeheader()
-            for err in errors:
-                writer.writerow(err)
+    # if errors:
+    #     error_log = args.logging_dir / "failed_literaryqa_downloads.tsv"
+    #     with error_log.open("w", encoding="utf-8") as f:
+    #         writer = DictWriter(
+    #             f,
+    #             fieldnames=["doc_id", "book_id", "split", "url"],
+    #             delimiter="\t",
+    #         )
+    #         writer.writeheader()
+    #         for err in errors:
+    #             writer.writerow(err)
 
-        logger.error(f"Logged {len(errors)} download failures to {error_log}")
+    #     logger.error(f"Logged {len(errors)} download failures to {error_log}")
 
     # -------------------
     # CLEANING STEP (SEQUENTIAL - OK)
@@ -158,10 +158,9 @@ def main(args: ScriptArgs) -> None:
             output_txt = args.output_dir / split / f"{book_id}.cleaned.txt"
             tag_map_file = args.output_dir / split / f"{book_id}.tagmap.json"
             log_file = args.logging_dir / split / f"{book_id}_cleaning.log"
-            
             if output_txt.exists():
                 logger.info(f"[SKIP CLEAN] {book_id} already processed")
-                continue
+                # continue
             if not input_html.exists():
                 missing.append(book_id)
                 continue
@@ -171,10 +170,11 @@ def main(args: ScriptArgs) -> None:
                 missing.append(book_id)
                 continue
                 
-            # Extract text WITH tag information
-            raw_lines, tags_lines = extract_raw_text_with_tags(html)
+            raw_lines, tags_lines = extract_raw_text_with_tags(html, book_id)
             
             # Clean and save with tag mapping
+
+
             clean_and_save_with_tags(
                 gt_id=book_id,
                 raw_lines=raw_lines,
