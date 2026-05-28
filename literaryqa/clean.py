@@ -35,6 +35,7 @@ END_MARKERS = [
     "NOW you can get ADVANCE COPIES of the best",  # 50571
     "AN ALPHABETICAL LIST OF BOOKS CONTAINED IN BOHN'S LIBRARIES",  # 50966
     "Brilliant New Novel from Award-Winning Author of",  # 20121
+    "<><><><><><><><><><><><><><><><><><><><><><><><><><><><>",  # 2090
 ]
 STRICT_END_MARKERS = [  # these must match exactly
     r"^addendum[\.:;]?$",
@@ -470,7 +471,7 @@ def remove_gutenberg_info(raw_text: str | list[str], tags_lines: list[str], gt_i
     text = []
     s_markers_pos = []
     e_markers_pos = []
-
+    char_sum=0
     if log_file:
         log_out = open(log_file, "w")
         log_out.write("Line_id\tMarker\tLine\t\n")
@@ -483,6 +484,8 @@ def remove_gutenberg_info(raw_text: str | list[str], tags_lines: list[str], gt_i
         skip_flag = False
         for marker in SKIP_LINE_MARKERS:
             if re.search(marker, line, flags=re.IGNORECASE | re.MULTILINE):
+                if marker == '^[\\*\\t ]*$' and gt_id in ('257', '45021', '1958', '6791'):
+                    continue
                 skip_flag = True
                 if log_file:
                     log_out.write(f"{i}\t{marker}\t{json.dumps(line)}\n")
@@ -572,10 +575,12 @@ def remove_gutenberg_info(raw_text: str | list[str], tags_lines: list[str], gt_i
                 break
         if skip_flag:
             continue
+        char_sum+=len(line)
         text.append((line, tag))
     if log_file:
         log_out.close()
-
+    if char_sum < 20000:
+        print(f"[{gt_id}] >> char_sum={char_sum}")
     return text
 
 
@@ -612,7 +617,7 @@ def clean_and_save(
 
 # Add this new function to your cleaning module
 
-def extract_raw_text_with_tags(html_content, **kwargs):
+def extract_raw_text_with_tags(html_content, book_id, **kwargs):
     """Extract readable raw text with tag information preserved.
     
     Returns:
@@ -623,8 +628,16 @@ def extract_raw_text_with_tags(html_content, **kwargs):
         '<div class="stage-direction center">': '<div class="stage-direction">',
     }
     html_content = html_content.translate(table)
-    soup = BeautifulSoup(html_content, "html5lib")
 
+    soup = BeautifulSoup(html_content, "html5lib")
+    if book_id in ['9800', '35991']:
+        for td in soup.find_all("td"):
+            if td.get_text(strip=True).isdigit():
+                td.decompose()
+        for td in soup.find_all("td"):
+            p = soup.new_tag("p")
+            p.append(td.get_text(" ", strip=True))
+            td.replace_with(p)
     # [... apply all the same transformations ...]
     if kwargs.get("keep_alt_img_text", True):
         _keep_alt_img_text(soup)
